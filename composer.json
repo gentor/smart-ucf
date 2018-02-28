@@ -1,0 +1,31 @@
+{
+    "name": "gentor/smart-ucf",
+    "description": "Smart Unicredit Consumer Financing Service for Laravel",
+    "keywords": [
+        "laravel",
+        "smart",
+        "ucf",
+        "unicredit",
+        "consumer",
+        "financing",
+        "pricing",
+        "service"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Evgeni Nurkov",
+            "email": "evgeni.nurkov@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">= 7.0",
+        "illuminate/support": "5.*",
+        "guzzlehttp/guzzle": "^6.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Gentor\\SmartUcf\\": "src/"
+        }
+    }
+}

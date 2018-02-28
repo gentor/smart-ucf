@@ -1,0 +1,23 @@
+<html>
+<head>
+</head>
+<body OnLoad="OnLoadEvent();">
+<form action="{$url}" method="post" name="form1" autocomplete="off">
+    <input type="hidden" name="suosId" value="{$suosId}"/>
+</form>
+<script language="JavaScript">
+    function OnLoadEvent() {
+        document.form1.submit();
+    }
+
+    // disable page duplication -> CTRL-N key
+    if (document.all) {
+        document.onkeydown = function () {
+            if (event.ctrlKey && event.keyCode == 78) {
+                return false;
+            }
+        }
+    }
+</script>
+</body>
+</html>
