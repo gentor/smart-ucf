@@ -2,200 +2,140 @@
 
 namespace Gentor\SmartUcf\Service;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Psr7\Response;
-
 
 /**
  * Class SmartUcf
- *
  * @package Gentor\SmartUcf\Service
  */
 class SmartUcf
 {
-    /**
-     * Test endpoint
-     */
-    const TEST_ENDPOINT = 'https://onlinetest.ucfin.bg/';
-
-    /**
-     * Live endpoint
-     */
-    const LIVE_ENDPOINT = 'https://online.ucfin.bg/';
-
-    /**
-     * @var Client
-     */
-    protected $http;
-
-    /**
-     * @var string
-     */
-    protected $user;
-    /**
-     * @var string
-     */
-    protected $pass;
+    /** @var SmartUcfClient */
+    protected $client;
 
     /**
      * SmartUcf constructor.
-     *
      * @param array $config
      */
     public function __construct(array $config)
     {
-        $this->user = $config['username'];
-        $this->pass = $config['password'];
-        $this->http = new Client([
-            'base_uri' => $config['test_mode'] ? static::TEST_ENDPOINT : static::LIVE_ENDPOINT,
-            'headers' => [
-                'Accept' => 'application/json'
+        $this->client = new SmartUcfClient($config);
+    }
+
+    /**
+     * @param float $price
+     * @param array $goods
+     * @param float|int $down_payment
+     *
+     * @return array
+     */
+    public function getPricingSchemes($price, array $goods, $down_payment = 0)
+    {
+        return [
+            (object)[
+                'PricingSchemeId' => 1,
+                'PricingSchemeName' => '',
+                'variants' => []
             ]
-        ]);
+        ];
     }
 
     /**
-     * @param array $params
-     * @return string
+     * @param float $price
+     * @param array $goods
+     * @param int $schemeId
+     * @param float|int $downPayment
+     * @param float|int $installment
+     * @return array
      * @throws SmartUcfException
      */
-    public function sessionStart(array $params): string
+    public function getPricingVariants($price, array $goods, $schemeId = null, $downPayment = 0, $installment = 0)
     {
-        $this->validateParams($params, [
-            'orderNo',
-            'onlineProductCode',
-            'totalPrice',
-            'installmentCount',
-            'monthlyPayment',
-        ]);
+        $price -= $downPayment;
+        $onlineProductCode = array_first($goods);
+        $params = !empty($onlineProductCode) ? ['onlineProductCode' => $onlineProductCode] : [];
 
-        /** @var Response $response */
-        $response = $this->http->post($this->getServiceUrl('sucfOnlineSessionStart'),
-            [
-                'json' => $params
-            ]);
+        $pricing = $this->client->getCoeff($params);
 
-        return $this->handleResponse($response)->sucfOnlineSessionID;
-    }
+        $variants = [];
+        foreach ($pricing->coeffList as $variant) {
+            $installmentAmount = $price * $variant->coeff;
 
-    /**
-     * @param $orderNo
-     * @return \stdClass
-     * @throws SmartUcfException
-     */
-    public function getStatus($orderNo): \stdClass
-    {
-        $params = ['orderNo' => $orderNo];
-        $this->validateParams($params, ['orderNo']);
+//            $glp = $variant->interestPercent;
+            $glp = CreditCalculator::rate($price, $variant->installmentCount, $installmentAmount) * 12;
+            $gpr = CreditCalculator::getGPR($price, $variant->installmentCount, $installmentAmount);
+            if ($gpr < $glp) {
+                $gpr = $glp;
+            }
 
-        /** @var Response $response */
-        $response = $this->http->post($this->getServiceUrl('getOrderStatus'),
-            [
-                'json' => $params
-            ]);
+            $variants[] = (object)[
+                'PricingSchemeId' => $variant->onlineProductCode ?: $schemeId,
+                'PricingSchemeName' => $variant->installmentCount . ' months',
+                'PricingVariantId' => $variant->installmentCount,
+                'Maturity' => $variant->installmentCount,
+                'InstallmentAmount' => $installmentAmount,
+                'CorrectDownPaymentAmount' => $downPayment,
+                'NIR' => $glp,
+                'APR' => $gpr,
+                'TotalRepaymentAmount' => $downPayment + $installmentAmount * $variant->installmentCount,
+            ];
+        }
 
-        return $this->handleResponse($response);
-    }
-
-    /**
-     * @param $orderNo
-     * @return \stdClass
-     * @throws SmartUcfException
-     */
-    public function getInfo($orderNo): \stdClass
-    {
-        $params = ['orderNo' => $orderNo];
-        $this->validateParams($params, ['orderNo']);
-
-        /** @var Response $response */
-        $response = $this->http->post($this->getServiceUrl('getOrderInfo'),
-            [
-                'json' => $params
-            ]);
-
-        return $this->handleResponse($response);
-    }
-
-    /**
-     * @param array $params
-     * @return \stdClass
-     * @throws SmartUcfException
-     */
-    public function getCoeff(array $params = []): \stdClass
-    {
-        $this->validateParams($params, []);
-
-        /** @var Response $response */
-        $response = $this->http->post($this->getServiceUrl('getCoeff'),
-            [
-                'json' => $params
-            ]);
-
-        return $this->handleResponse($response);
-    }
-
-    /**
-     * @param $suosId
-     */
-    public function redirect($suosId)
-    {
-        $html = file_get_contents(__DIR__ . '/redirect.html');
-        $html = str_replace('{$url}', $this->getRedirectUrl(), $html);
-        $html = str_replace('{$suosId}', $suosId, $html);
-
-        die($html);
-    }
-
-    /**
-     * @param string $service
-     * @return string
-     */
-    protected function getServiceUrl(string $service): string
-    {
-        return 'suos/api/otp/' . $service;
-    }
-
-    /**
-     * @return string
-     */
-    protected function getRedirectUrl()
-    {
-        return (string)$this->http->getConfig('base_uri') . 'sucf-online/Request/Create';
-    }
-
-    /**
-     * @param array $params
-     * @param array $requiredParams
-     * @throws SmartUcfException
-     */
-    protected function validateParams(array &$params, array $requiredParams)
-    {
-        foreach ($requiredParams as $requiredParam) {
-            if (empty($params[$requiredParam])) {
-                throw new SmartUcfException("Invalid value for parameter '{$requiredParam}'");
+        if ($installment > 0) {
+            $iMax = $installment * (1 + 20 / 100);
+            $iMin = $installment * (1 - 20 / 100);
+            foreach ($variants as $key => $variant) {
+                if ($iMax < $variant->InstallmentAmount || $iMin > $variant->InstallmentAmount) {
+                    unset($variants[$key]);
+                }
             }
         }
 
-        $params['user'] = $this->user;
-        $params['pass'] = $this->pass;
+        return $variants;
     }
 
     /**
-     * @param Response $response
-     * @return \stdClass
+     * @param array $productIds
+     * @param $price
+     * @param int $downPayment
+     * @param int $installment
+     * @return array
      * @throws SmartUcfException
      */
-    protected function handleResponse(Response $response): \stdClass
+    public function getPricingData(array $productIds, $price, $downPayment = 0, $installment = 0)
     {
-        $json = (string)$response->getBody();
-        $data = json_decode($json);
+        $schemes = $this->getPricingSchemes($price, $productIds, $downPayment);
 
-        if (!empty($data->errorCode)) {
-            throw new SmartUcfException($data->errorText, $data->errorCode, $data);
+        foreach ($schemes as $scheme) {
+            $scheme->variants = $this->getPricingVariants($price, $productIds,
+                $scheme->PricingSchemeId, $downPayment, $installment);
         }
 
-        unset($data->errorCode, $data->errorText);
+        return [
+            'schemes' => $schemes,
+            'downPayment' => (float)$downPayment ?: null,
+        ];
+    }
 
-        return $data;
+    /**
+     * @param $pricingVariantId
+     * @param $productIds
+     * @param $price
+     * @param int $downPayment
+     * @param int $installment
+     * @return array
+     * @throws SmartUcfException
+     */
+    public function getPriceVariantId($pricingVariantId, $productIds, $price, $downPayment = 0, $installment = 0)
+    {
+        $data = $this->getPricingData($productIds, $price, $downPayment, $installment);
+        foreach (!empty($data['schemes']) ? $data['schemes'] : [] AS $scheme) {
+            foreach ($scheme->variants AS $variant) {
+                if ($variant->PricingVariantId == $pricingVariantId) {
+                    return $variant;
+                }
+            }
+        }
+
+        return null;
     }
 }
