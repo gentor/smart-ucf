@@ -6,6 +6,10 @@ namespace Gentor\SmartUcf\Service;
 /**
  * Class SmartUcf
  * @package Gentor\SmartUcf\Service
+ *
+ * @method string sessionStart(array $params)
+ * @method string redirect($suosId)
+ * @method \stdClass getInfo($orderNo)
  */
 class SmartUcf
 {
@@ -137,5 +141,16 @@ class SmartUcf
         }
 
         return null;
+    }
+
+    /**
+     * @param $method
+     * @param array $args
+     * @return \stdClass|mixed
+     * @throws SmartUcfException
+     */
+    public function __call($method, array $args)
+    {
+        return call_user_func_array([$this->client, $method], $args);
     }
 }

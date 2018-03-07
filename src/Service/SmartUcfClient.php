@@ -136,14 +136,15 @@ class SmartUcfClient
 
     /**
      * @param $suosId
+     * @return string
      */
-    public function redirect($suosId)
+    public function redirect($suosId): string
     {
         $html = file_get_contents(__DIR__ . '/redirect.html');
         $html = str_replace('{$url}', $this->getRedirectUrl(), $html);
         $html = str_replace('{$suosId}', $suosId, $html);
 
-        die($html);
+        return $html;
     }
 
     /**
