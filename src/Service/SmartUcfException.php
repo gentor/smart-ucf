@@ -12,7 +12,7 @@ use Exception;
 class SmartUcfException extends Exception
 {
     /**
-     * @var string|null
+     * @var \stdClass|null
      */
     protected $details;
 
@@ -26,16 +26,12 @@ class SmartUcfException extends Exception
      */
     public function __construct($message = "", $code = 0, $details = null, Exception $previous = null)
     {
-        if (!is_null($details)) {
-            $message .= "\n\n" . json_encode($details, JSON_UNESCAPED_UNICODE);
-        }
-
         parent::__construct($message, $code, $previous);
         $this->details = $details;
     }
 
     /**
-     * @return string|null
+     * @return \stdClass|null
      */
     public function getDetails()
     {

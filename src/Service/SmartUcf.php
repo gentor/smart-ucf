@@ -2,6 +2,8 @@
 
 namespace Gentor\SmartUcf\Service;
 
+use PhpOffice\PhpSpreadsheet\Calculation\Financial;
+
 
 /**
  * Class SmartUcf
@@ -62,14 +64,11 @@ class SmartUcf
 
         $variants = [];
         foreach ($pricing->coeffList as $variant) {
-            $installmentAmount = $price * $variant->coeff;
+            $installmentAmount = round($price * $variant->coeff, 2);
 
-//            $glp = $variant->interestPercent;
-            $glp = CreditCalculator::rate($price, $variant->installmentCount, $installmentAmount) * 12;
-            $gpr = CreditCalculator::getGPR($price, $variant->installmentCount, $installmentAmount);
-            if ($gpr < $glp) {
-                $gpr = $glp;
-            }
+            $nir = $variant->interestPercent;
+            $apr = !$nir ? $nir : $this->calculateAPR($price, $variant->installmentCount, $installmentAmount);
+            $totalAmount = !$nir ? $downPayment + $price : $downPayment + $installmentAmount * $variant->installmentCount;
 
             $variants[] = (object)[
                 'PricingSchemeId' => $variant->onlineProductCode ?: $schemeId,
@@ -78,9 +77,9 @@ class SmartUcf
                 'Maturity' => $variant->installmentCount,
                 'InstallmentAmount' => $installmentAmount,
                 'CorrectDownPaymentAmount' => $downPayment,
-                'NIR' => $glp,
-                'APR' => $gpr,
-                'TotalRepaymentAmount' => $downPayment + $installmentAmount * $variant->installmentCount,
+                'NIR' => $nir,
+                'APR' => $apr,
+                'TotalRepaymentAmount' => $totalAmount,
             ];
         }
 
@@ -147,10 +146,28 @@ class SmartUcf
      * @param $method
      * @param array $args
      * @return \stdClass|mixed
-     * @throws SmartUcfException
      */
     public function __call($method, array $args)
     {
         return call_user_func_array([$this->client, $method], $args);
+    }
+
+    /**
+     * @param $amount
+     * @param $installmentCount
+     * @param $installmentAmount
+     * @return float
+     */
+    protected function calculateAPR($amount, $installmentCount, $installmentAmount)
+    {
+        $monthlyPayments[] = $amount * -1;
+        for ($i = 1; $i <= $installmentCount; $i++) {
+            $monthlyPayments[] = $installmentAmount;
+        }
+
+        $irr = Financial::IRR($monthlyPayments, 0.005);
+        $pow = pow($irr * 100 + 100, 12);
+
+        return round(substr(sprintf('%F', $pow), 1, 6) / 10000, 3);
     }
 }
