@@ -148,6 +148,28 @@ class SmartUcfClient
     }
 
     /**
+     * @param array $params
+     * @return \stdClass
+     * @throws SmartUcfException
+     */
+    public function sendInvoice(array $params): \stdClass
+    {
+        $this->validateParams($params, [
+            'orderNo',
+            'invoiceNo',
+            'invoiceFile',
+        ]);
+
+        /** @var Response $response */
+        $response = $this->http->post($this->getServiceUrl('sendInvoice'),
+            [
+                'json' => $params
+            ]);
+
+        return $this->handleResponse($response);
+    }
+
+    /**
      * @param string $service
      * @return string
      */

@@ -12,6 +12,7 @@ use PhpOffice\PhpSpreadsheet\Calculation\Financial;
  * @method string sessionStart(array $params)
  * @method string redirect($suosId)
  * @method \stdClass getInfo($orderNo)
+ * @method \stdClass sendInvoice(array $params)
  */
 class SmartUcf
 {
