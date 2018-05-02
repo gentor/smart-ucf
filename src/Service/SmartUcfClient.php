@@ -46,12 +46,25 @@ class SmartUcfClient
     {
         $this->user = $config['username'];
         $this->pass = $config['password'];
-        $this->http = new Client([
-            'base_uri' => $config['test_mode'] ? static::TEST_ENDPOINT : static::LIVE_ENDPOINT,
+
+        $requestOptions = [
             'headers' => [
                 'Accept' => 'application/json'
             ]
-        ]);
+        ];
+
+        if (isset($config['cert_path'])) {
+            $requestOptions = array_merge($requestOptions, [
+                'cert' => [
+                    $config['cert_path'],
+                    $config['cert_pass'] ?? null
+                ]
+            ]);
+        }
+
+        $this->http = new Client(array_merge([
+            'base_uri' => $config['test_mode'] ? static::TEST_ENDPOINT : static::LIVE_ENDPOINT,
+        ], $requestOptions));
     }
 
     /**
