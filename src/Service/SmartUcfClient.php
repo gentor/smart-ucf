@@ -50,7 +50,8 @@ class SmartUcfClient
         $requestOptions = [
             'headers' => [
                 'Accept' => 'application/json'
-            ]
+            ],
+            'verify' => $config['verify_ssl'] ?? true
         ];
 
         if (isset($config['cert_path'])) {
