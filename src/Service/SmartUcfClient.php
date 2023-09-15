@@ -51,7 +51,8 @@ class SmartUcfClient
             'headers' => [
                 'Accept' => 'application/json'
             ],
-            'verify' => $config['verify_ssl'] ?? true
+            'verify' => $config['verify_ssl'] ?? true,
+            'timeout' => $config['timeout'] ?? 0,
         ];
 
         if (isset($config['cert_path'])) {
@@ -61,6 +62,10 @@ class SmartUcfClient
                     $config['cert_pass'] ?? null
                 ]
             ]);
+        }
+
+        if (isset($config['base_uri'])) {
+            $requestOptions['base_uri'] = $config['base_uri'];
         }
 
         $this->http = new Client(array_merge([
